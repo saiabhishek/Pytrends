@@ -1,95 +1,82 @@
-from flask import Flask
-from flask_restplus import Api, Resource, fields
-from werkzeug.contrib.fixers import ProxyFix
+"""
+Routes and views for the flask application.
+"""
 
-app = Flask(__name__)
-app.wsgi_app = ProxyFix(app.wsgi_app)
-api = Api(app, version='1.0', title='TodoMVC API',
-    description='A simple TodoMVC API',
-)
+from datetime import datetime
+from flask import render_template,request, jsonify
+from FlaskWebProject3 import app
 
-ns = api.namespace('todos', description='TODO operations')
+#New
+from pytrends.request import TrendReq
+import json
+keywords = ['Google', 'R']
 
-todo = api.model('Todo', {
-    'id': fields.Integer(readonly=True, description='The task unique identifier'),
-    'task': fields.String(required=True, description='The task details')
-})
+@app.route('/')
+@app.route('/home')
+def home():
+    """Renders the home page."""
+    return render_template(
+        'index.html',
+        title='Home Page',
+        year=datetime.now().year,
+    )
 
+@app.route('/contact')
+def contact():
+    """Renders the contact page."""
+    return render_template(
+        'contact.html',
+        title='Contact',
+        year=datetime.now().year,
+        message='Your contact page.'
+    )
 
-class TodoDAO(object):
-    def __init__(self):
-        self.counter = 0
-        self.todos = []
-
-    def get(self, id):
-        for todo in self.todos:
-            if todo['id'] == id:
-                return todo
-        api.abort(404, "Todo {} doesn't exist".format(id))
-
-    def create(self, data):
-        todo = data
-        todo['id'] = self.counter = self.counter + 1
-        self.todos.append(todo)
-        return todo
-
-    def update(self, id, data):
-        todo = self.get(id)
-        todo.update(data)
-        return todo
-
-    def delete(self, id):
-        todo = self.get(id)
-        self.todos.remove(todo)
-
-
-DAO = TodoDAO()
-DAO.create({'task': 'Build an API'})
-DAO.create({'task': '?????'})
-DAO.create({'task': 'profit!'})
+@app.route('/about')
+def about():
+    """Renders the about page."""
+    return render_template(
+        'about.html',
+        title='About',
+        year=datetime.now().year,
+        message='Your application description page.'
+    )
 
 
-@ns.route('/')
-class TodoList(Resource):
-    '''Shows a list of all todos, and lets you POST to add new tasks'''
-    @ns.doc('list_todos')
-    @ns.marshal_list_with(todo)
-    def get(self):
-        '''List all tasks'''
-        return DAO.todos
+#trigger the api with "/api/v1/GetResults" and with keys words in json format will recieve the output
+@app.route('/api/v1/GetResults', methods=['POST'])
+def api_all():
+    req_data = request.get_json()
+    language = req_data['SearchTags']
+    splitedData=split(language, 5)
+    jsondata={}
+    for x in language:
+        jsondata[x]=[]
+    pytrend = TrendReq(hl='en-US', tz=360)
+    #df = pd.DataFrame()
+    for x in splitedData:
+        try:
+            pytrend.build_payload(kw_list=x,cat=0,timeframe='today 3-m',geo='TW',gprop='')
+            data = pytrend.interest_over_time()
+            #result = data.to_json(orient='index',date_format='iso') #,date_format='iso'
+            #parsed = json.loads(result)
+            #jsondata.append(data)
+            for y in data.index:
+                for columnName in x:
+                    row={"date":y.strftime('%Y-%m-%d'),"Count":str(data[columnName][y])}#
+                    oldData=jsondata[columnName]
+                    oldData.append(row)
+                    jsondata[columnName]=oldData
+        except:   
+            print("Oops!", sys.exc_info()[0], "occurred.")
 
-    @ns.doc('create_todo')
-    @ns.expect(todo)
-    @ns.marshal_with(todo, code=201)
-    def post(self):
-        '''Create a new task'''
-        return DAO.create(api.payload), 201
-
-
-@ns.route('/<int:id>')
-@ns.response(404, 'Todo not found')
-@ns.param('id', 'The task identifier')
-class Todo(Resource):
-    '''Show a single todo item and lets you delete them'''
-    @ns.doc('get_todo')
-    @ns.marshal_with(todo)
-    def get(self, id):
-        '''Fetch a given resource'''
-        return DAO.get(id)
-
-    @ns.doc('delete_todo')
-    @ns.response(204, 'Todo deleted')
-    def delete(self, id):
-        '''Delete a task given its identifier'''
-        DAO.delete(id)
-        return '', 204
-
-    @ns.expect(todo)
-    @ns.marshal_with(todo)
-    def put(self, id):
-        '''Update a task given its identifier'''
-        return DAO.update(id, api.payload)
+    return jsonify(jsondata)
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+def split(arr, size):
+     arrs = []
+     while len(arr) > size:
+         pice = arr[:size]
+         arrs.append(pice)
+         arr   = arr[size:]
+     arrs.append(arr)
+     return arrs
