@@ -1,46 +1,16 @@
-"""
-Routes and views for the flask application.
-"""
-
-from datetime import datetime
-from flask import render_template,request, jsonify
-from FlaskWebProject3 import app
-
-#New
 from pytrends.request import TrendReq
 import json
+import flask
+from flask import request, jsonify
+app = flask.Flask(__name__)
+app.config["DEBUG"] = True
 keywords = ['Google', 'R']
 
-@app.route('/')
-@app.route('/home')
+
+@app.route('/', methods=['GET'])
 def home():
-    """Renders the home page."""
-    return render_template(
-        'index.html',
-        title='Home Page',
-        year=datetime.now().year,
-    )
-
-@app.route('/contact')
-def contact():
-    """Renders the contact page."""
-    return render_template(
-        'contact.html',
-        title='Contact',
-        year=datetime.now().year,
-        message='Your contact page.'
-    )
-
-@app.route('/about')
-def about():
-    """Renders the about page."""
-    return render_template(
-        'about.html',
-        title='About',
-        year=datetime.now().year,
-        message='Your application description page.'
-    )
-
+    return '''<h1>Get Basic results of Trends</h1>
+<p>A prototype API for distant reading of science fiction novels.</p>'''
 
 #trigger the api with "/api/v1/GetResults" and with keys words in json format will recieve the output
 @app.route('/api/v1/GetResults', methods=['POST'])
@@ -69,6 +39,8 @@ def api_all():
         except:   
             print("Oops!", sys.exc_info()[0], "occurred.")
 
+    #json.dumps(jsondata)
+    print(jsonify(jsondata))
     return jsonify(jsondata)
 
 
@@ -80,3 +52,5 @@ def split(arr, size):
          arr   = arr[size:]
      arrs.append(arr)
      return arrs
+
+app.run()
